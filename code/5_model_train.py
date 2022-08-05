@@ -53,9 +53,14 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
-from sklearn.metrics import classification_report
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+import mlflow
+import mlflow.sklearn
 
-cancelled_flights = pd.read_csv("data/preprocessed_flight_data.csv")
+mlflow.set_experiment(experiment_name="cancelled-flight-prediction")
+mlflow.xgboost.autolog()
+
+cancelled_flights = pd.read_csv("../data/preprocessed_flight_data.csv")
 cancelled_flights = cancelled_flights.dropna()
 
 # select features and target
@@ -81,16 +86,33 @@ X_trans = ct.fit_transform(X)
 # train/test split
 X_train, X_test, y_train, y_test = train_test_split(X_trans, y, random_state=42)
 
+# create an mlflow experiment
+run = mlflow.start_run()
+
 # fit a model
 xgbclf = xgb.XGBClassifier()
 pipe = Pipeline([("scaler", StandardScaler(with_mean=False)), ("xgbclf", xgbclf)])
 pipe.fit(X_train, y_train)
 
-# create classification report
-y_pred = pipe.predict(X_test)
-targets = ["Not-cancelled", "Cancelled"]
-cls_report = classification_report(y_test, y_pred, target_names=targets)
-print(cls_report)
+# log metrics
+accuracy = accuracy_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
+
+print("  accuracy: %s" % accuracy)
+print("  precision: %s" % precision)
+print("  recall: %s" % recall)
+print("  f1: %s" % f1)
+
+# # create classification report
+# y_pred = pipe.predict(X_test)
+# targets = ["Not-cancelled", "Cancelled"]
+# cls_report = classification_report(y_test, y_pred, target_names=targets)
+# print(cls_report)
+
+# end mlflow experiment
+mlflow.end_run()
 
 # save model
 os.makedirs("models", exist_ok=True)
